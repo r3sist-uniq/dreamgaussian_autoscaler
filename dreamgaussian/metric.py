@@ -1,47 +1,42 @@
 import random
-
 from metrics import GenericMetrics
 
 class Metrics(GenericMetrics):
     def __init__(self, id, master_token, control_server_url, send_server_data):
-        self.tot_request_time = 0
-        self.is_busy = False
+        # Initialize base metrics
+        self.models_generated = 0
+        self.total_request_time = 0  # Total time to generate models
 
         super().__init__(id, master_token, control_server_url, send_server_data)
-        
+
     def fill_data(self, data):
         self.fill_data_generic(data)
-        data["cur_load"] = 1 if self.is_busy else 0
-        self.cur_capacity_lastreport = 1 if self.is_busy else 0
+        # Update the load to reflect the number of models being processed
+        data["current_load"] = self.models_generated
+        self.cur_capacity_lastreport = self.models_generated
 
     def start_req(self, request):
-        self.num_requests_recieved += 1
+        self.num_requests_received += 1
         self.num_requests_working += 1
-        num_prompt_tokens = len(request["prompt"].split())
-        self.total_prompt_tokens += num_prompt_tokens
+        # No specific model metrics to track at start
 
     def finish_req(self, request):
         self.num_requests_finished += 1
         self.num_requests_working -= 1
-        self.tot_request_time += request["time_elapsed"]
+        self.models_generated += 1  # Increment for each completed request
+        self.total_request_time += request["time_elapsed"]  # Ensure time_elapsed is in seconds
 
     def error_req(self, request):
-        self.num_requests_recieved -= 1
+        # Adjust request counters on error without specific model metrics
+        self.num_requests_received -= 1
         self.num_requests_working -= 1
 
-        num_prompt_tokens = len(request["prompt"].split())
-        self.total_prompt_tokens -= num_prompt_tokens
-
     def report_req_stats(self, log_data):
-        # self.tot_request_time += log_data["time_elapsed"]
-        # self.cur_perf = self.img_size * (self.num_requests_finished / self.tot_request_time)
+        # Calculate models per second as the performance metric
+        self.cur_perf = self.models_generated / self.total_request_time if self.total_request_time > 0 else 0
         self.curr_wait_time = log_data["wait_time"]
-        self.cur_perf = self.img_size / (self.tot_request_time / self.num_requests_recieved) if (self.tot_request_time != 0 and self.num_requests_recieved != 0.0) else 0.0
-
-        if self.curr_wait_time > 30.0:
-            self.overloaded = True
-        else:
-            self.overloaded = False
+        self.overloaded = self.curr_wait_time > 30.0  # Mark as overloaded if wait time exceeds 30 seconds
 
     def send_data_condition(self):
-        return (((random.randint(0, 9) == 3) or (self.total_prompt_tokens != self.cur_capacity_lastreport)) and self.model_loaded)
+        # Randomly send data or on significant change in generated models
+        return (random.randint(0, 9) == 3) or (self.models_generated != self.cur_capacity_lastreport) and self.model_loaded
