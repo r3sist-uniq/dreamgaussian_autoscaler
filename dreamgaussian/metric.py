@@ -4,16 +4,15 @@ from metrics import GenericMetrics
 
 class Metrics(GenericMetrics):
     def __init__(self, id, master_token, control_server_url, send_server_data):
-        self.total_prompt_tokens = 0
         self.tot_request_time = 0
-        self.img_size = 512 * 512 #add this as a parameter
+        self.is_busy = False
+
         super().__init__(id, master_token, control_server_url, send_server_data)
         
     def fill_data(self, data):
         self.fill_data_generic(data)
-        data["cur_load"] = self.img_size * self.num_requests_working
-        data["total_prompt_tokens"] = self.total_prompt_tokens
-        self.cur_capacity_lastreport = self.total_prompt_tokens
+        data["cur_load"] = 1 if self.is_busy else 0
+        self.cur_capacity_lastreport = 1 if self.is_busy else 0
 
     def start_req(self, request):
         self.num_requests_recieved += 1

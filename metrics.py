@@ -64,8 +64,8 @@ class GenericMetrics(ABC):
         data["num_requests_working"] = self.num_requests_working
         data["overloaded"] = self.overloaded
         data["num_requests_recieved"] = self.num_requests_recieved
-        data["cur_perf"]     = self.cur_perf
-        data["error"]        = self.error
+        data["cur_perf"] = self.cur_perf
+        data["error"] = self.error
 
         if self.model_loaded:
             data["loadtime"] = self.loadtime

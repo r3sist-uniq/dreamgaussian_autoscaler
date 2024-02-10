@@ -59,20 +59,16 @@ class GenericBackend():
             t1 = time.time()
             response = requests.post(f"http://{model_server_addr}/{endpoint}", json=model_request)
             t2 = time.time()
-            
             if response.status_code == 200:
                 if metrics:
                     model_request["time_elapsed"] = t2 - t1
                     self.metrics.finish_req(model_request)
-
                 return 200, response_func(response), t2 - t1
             else:
                 ret_code = response.status_code
-        
         except requests.exceptions.RequestException as e:
             ret_code = 500
             print(f"[backend] Request error: {e}")
-
         if metrics:
             self.metrics.error_req(model_request)
         
