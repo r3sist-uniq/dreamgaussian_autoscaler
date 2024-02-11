@@ -4,9 +4,7 @@ from logwatch import GenericLogWatch
 class LogWatch(GenericLogWatch):
     def __init__(self, id, control_server_url, master_token):
         super().__init__(id=id, control_server_url=control_server_url, master_token=master_token, perf_test=None)
-        # Adjusted pattern to match service ready message
         self.ready_pattern = re.compile("Service ready, listening on http://127.0.0.1:5000")
-        # Adjusted pattern to capture processing time from log messages
         self.update_pattern = re.compile("Request processed in (\d+\.\d+)s")
     
     def check_model_ready(self, line):

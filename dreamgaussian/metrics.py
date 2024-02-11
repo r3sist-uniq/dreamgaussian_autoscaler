@@ -3,9 +3,8 @@ from metrics import GenericMetrics
 
 class Metrics(GenericMetrics):
     def __init__(self, id, master_token, control_server_url, send_server_data):
-        # Initialize base metrics
-        self.models_generated = 0
-        self.total_request_time = 0  # Total time to generate models
+        self.models_generated = 0 # Number of models generated
+        self.total_request_time = 0 # Total time spent processing requests
 
         super().__init__(id, master_token, control_server_url, send_server_data)
 
@@ -18,7 +17,6 @@ class Metrics(GenericMetrics):
     def start_req(self, request):
         self.num_requests_received += 1
         self.num_requests_working += 1
-        # No specific model metrics to track at start
 
     def finish_req(self, request):
         self.num_requests_finished += 1
