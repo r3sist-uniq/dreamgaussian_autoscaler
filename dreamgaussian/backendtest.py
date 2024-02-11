@@ -1,79 +1,52 @@
-from flask import Flask, request, abort, send_from_directory
-import subprocess
-import base64
-import yaml
-import os
 import requests
+from flask import Response, send_file, abort, jsonify
+import json
+from backend import GenericBackend
+from datetime import datetime
+from dreamgaussian.metric import Metrics  # Adjust the import path as needed
 
-class ImageData:
-    def __init__(self, data, extension, file_name):
-        self.data = data
-        self.extension = extension
-        self.file_name = file_name
 
-    @staticmethod
-    def from_request(req_data):
-        return ImageData(data=req_data.get('data'), extension=req_data.get('extension'), file_name=req_data.get('file_name'))
+INSTANCE_ID = "localhost"
+INSTANCE_PORT = '5000'
+MODEL_SERVER = INSTANCE_ID + ":" + INSTANCE_PORT
 
-def update_yaml_file(file_path, new_value, key):
-    with open(file_path, 'r') as file:
-        data = yaml.safe_load(file)
-    data[key] = new_value
-    with open(file_path, 'w') as file:
-        yaml.dump(data, file)
 
-def save_image_base64(base64_string, file_path):
-    image_data = base64.b64decode(base64_string)
-    with open(file_path, 'wb') as file:
-        file.write(image_data)
+class Backend(GenericBackend):
+    def __init__(self, container_id, control_server_url, master_token, send_data):
+        metrics = Metrics(id=container_id, master_token=master_token, control_server_url=control_server_url, send_server_data=send_data)
+        super().__init__(master_token=master_token, metrics=metrics)
+        self.model_server_addr = MODEL_SERVER
 
-class Backend():
-    def __init__(self):
-        self.base_directory = "./dreamgaussian/data"
-        os.makedirs(self.base_directory, exist_ok=True)
-        update_yaml_file('./dreamgaussian/configs/image.yaml', True, "force_cuda_rast")
+    def generate_3d_model(self, image_data):
+        start_time = datetime.now()
+        try :
+            response = requests.post(f"{self.model_server_addr}/generate_3d", json=image_data)
+            if response.status_code == 200:
+                self.metrics.start_req(image_data)
+                glb_url = response.json().get('glb_url')
+                self.metrics.finish_req(image_data, (datetime.now() - start_time).total_seconds())
+                return jsonify({"glb_url": glb_url}), 200
+            else:
+                self.metrics.error_req(image_data)
+                return jsonify({"error": "Error generating 3D model", "details": response.text}), response.status_code
+        except requests.exceptions.RequestException as e:
+            self.metrics.error_req(image_data)
+            return jsonify({"error": "Request to model server failed", "details": str(e)}), 500
+
+######################################### FLASK HANDLER METHODS ###############################################################
+
+    def generate_3d_model_handler(self, request):
+        image_data = request.json  # Assuming the request contains JSON with image details
+        if not image_data:
+            abort(400, description="Invalid request data")
+        response, status_code = self.generate_3d_model(image_data)
+        if status_code == 200:
+            return response
+        else:
+            abort(status_code, description="Failed to generate 3D model")
     
-    def inference_with_image(self):
-        content = request.json
-        image_data_obj = ImageData.from_request(content)
-        
-        if not image_data_obj.data:
-            abort(400, description="Image data is required")
-        
-        file_path = os.path.join(self.base_directory, f"{image_data_obj.file_name}.{image_data_obj.extension}")
-        save_image_base64(image_data_obj.data, file_path)
-
-        preprocessed_file_path = f"{self.base_directory}/{image_data_obj.file_name}_rgba.png"
-        file_name = image_data_obj.file_name
-        
-        # Define your commands here
-        commands = [
-            ["python", "./dreamgaussian/process.py", file_path],
-            ["python", "./dreamgaussian/main.py", "--config", "./dreamgaussian/configs/image.yaml", f"input={preprocessed_file_path}", f"save_path=./dreamgaussian/results/{file_name}", "mesh_format=glb"],
-            # Add more commands as needed
-        ]
-
-        for command in commands:
-            try:
-                subprocess.run(command, check=True)
-            except subprocess.CalledProcessError as e:
-                abort(500, description=f"An error occurred while executing a subprocess: {e}")
-        
-        # Assuming the response should include paths or URLs to the generated files
-        video_path = f"./dreamgaussian/results/{file_name}.mp4"
-        glb_path = f"./dreamgaussian/results/{file_name}.glb"
-        
-        # Return the path of the saved video and GLB model
-        return {
-            'video_path': video_path,
-            'glb_path': glb_path,
-            # Assuming 'address' needs to be constructed or passed in some way
-            "instance_public_url": "https://{ip_address}:{vast_tcp_port_x}/".format(ip_address=os.getenv('PUBLIC_IPADDR'), vast_tcp_port_x=os.getenv('VAST_TCP_PORT_8081'))
+    flask_dict = {
+        "POST": {
+            "/generate_3d_model": generate_3d_model_handler,
         }
-
-# Flask dict for mapping Flask routes to handler functions
-flask_dict = {
-    "POST": {
-        "/inference_with_image": Backend().inference_with_image
     }
-}
