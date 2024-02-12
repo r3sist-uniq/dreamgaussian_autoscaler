@@ -29,6 +29,7 @@ class Metrics(GenericMetrics):
         self.num_requests_received -= 1
         self.num_requests_working -= 1
 
+# didnt get fully
     def report_req_stats(self, log_data):
         # Calculate models per second as the performance metric
         self.cur_perf = self.models_generated / self.total_request_time if self.total_request_time > 0 else 0

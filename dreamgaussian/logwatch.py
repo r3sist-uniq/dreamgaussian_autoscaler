@@ -1,10 +1,11 @@
 import re
 from logwatch import GenericLogWatch
 
+
 class LogWatch(GenericLogWatch):
     def __init__(self, id, control_server_url, master_token):
         super().__init__(id=id, control_server_url=control_server_url, master_token=master_token, perf_test=None)
-        self.ready_pattern = re.compile("Service ready, listening on http://127.0.0.1:5000")
+        self.ready_pattern = re.compile("Service ready, listening on http://localhost:5000")
         self.update_pattern = re.compile("Request processed in (\d+\.\d+)s")
     
     def check_model_ready(self, line):
@@ -20,8 +21,10 @@ class LogWatch(GenericLogWatch):
             update_params = {"processing_time": processing_time}
             self.send_model_update(update_params)  # Send processing time as an update
             return True
+  
         return False
-   
+    
+# signals reddiness or send update to control server
     def handle_line(self, line):
         if self.check_model_ready(line):
             return
