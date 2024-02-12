@@ -15,6 +15,7 @@ echo "$BACKEND" | tee -a /root/debug.log
 if [ ! -f /root/hasbooted2 ]
 then 
     echo "booting" | tee -a /root/debug.log
+    sudo apt install python3.10-venv
     mkdir /home/workspace
     cd /home/workspace
     git clone https://github.com/r3sist-uniq/vast-pyworker.git 
