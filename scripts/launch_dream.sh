@@ -1,52 +1,54 @@
 #!/bin/bash
-echo "Launching Image to 3D Conversion Service..." | tee -a /root/debug.log
+echo "launch_dream.sh" | tee -a /root/debug.log
 
-# Define server directory where your service code resides
-SERVER_DIR="/path/to/your/service/directory" # e.g., "/home/workspace/my_service"
+SERVER_DIR="/home/workspace/vast-pyworker"
 
-# Function to start your service, handling both initial setup and server start
-start_service() {
-    if [ ! -d "$1" ]; then
-        echo "Setting up the service environment..." | tee -a /root/debug.log
-
-        # Install system dependencies
-        apt-get update -y && \
-        apt-get install -y libegl-dev libgl1-mesa-glx libglm-dev
-
-        # Navigate to the server directory
-        cd "$1" || exit
-        
-        # Install Python dependencies
-        pip install vastai flask fastapi pyyaml \
-        && git clone https://github.com/dreamgaussian/dreamgaussian \
-        && cd dreamgaussian \
-        && pip install -r requirements.txt \
-        && git clone --recursive https://github.com/ashawkey/diff-gaussian-rasterization \
-        && pip install ./diff-gaussian-rasterization \
-        && pip install ./simple-knn \
-        && pip install git+https://github.com/NVlabs/nvdiffrast/ \
-        && pip install git+https://github.com/ashawkey/kiuikit \
-        && rm -rf /root/.cache/pip
-
-        echo "Service environment setup completed." | tee -a /root/debug.log
+start_server() {
+    if [ ! -d "$1" ]
+    then
+        wget -O - https://raw.githubusercontent.com/r3sist-uniq/dreamgaussian_autoscaler/main/start_server.sh | bash -s "$2"
     else
-        echo "Service directory already exists. Assuming environment is set." | tee -a /root/debug.log
+        $1/start_server.sh "$2"
     fi
-
-    # Start the FastAPI service
-    echo "Starting the FastAPI service for image to 3D model conversion..." | tee -a /root/debug.log
-    uvicorn main:app --host 0.0.0.0 --port 5000 &>> service.log & # Make sure 'main:app' points to your FastAPI app instance
-    echo "FastAPI service launched." | tee -a /root/debug.log
 }
 
-# Call the start_service function with the server directory
-start_service "$SERVER_DIR"
+start_server "$SERVER_DIR" "dreamgaussian"
 
-# Check if the service is running by checking for the uvicorn process
-SERVICE_PID=$(ps aux | grep uvicorn | grep -v grep | awk '{print $2}')
+# Function to clone repo, install dependencies, and start FastAPI server
+start_3d_inference_service() {
+  # Define the service directory and repository URL
+  APP_DIR="/home/workspace/launch_autoscaler"
+  REPO_URL="https://github.com/SehajDxstiny/launch_autoscaler.git"
 
-if [ -z "$SERVICE_PID" ]; then
-    echo "Service failed to start. Check /root/debug.log and service.log for details." | tee -a /root/debug.log
-else
-    echo "Service is running with PID $SERVICE_PID." | tee -a /root/debug.log
-fi
+  # Clone the repository if it doesn't exist
+  if [ ! -d "$APP_DIR" ]; then
+    echo "Cloning 3D inference repository..." | tee -a /root/setup.log
+    git clone $REPO_URL $APP_DIR
+  else
+    echo "Repository already exists. Pulling latest changes..." | tee -a /root/setup.log
+    cd $APP_DIR
+    git pull
+  fi
+
+  # Navigate to service directory and install dependencies
+  cd $APP_DIR
+  echo "Installing dependencies..." | tee -a /root/setup.log
+  chmod +x install_dependencies.sh
+  ./install_dependencies.sh
+
+  # Start the FastAPI service
+  echo "Starting FastAPI service..." | tee -a /root/setup.log
+  uvicorn 3d_inference:app --host 0.0.0.0 --port 5000 &>> /root/service.log &
+
+  # Check if the service is running
+  echo "Verifying service startup..." | tee -a /root/setup.log
+  APP_PID=$(ps aux | grep uvicorn | grep -v grep | awk '{print $2}')
+  if [ -z "$APP_PID" ]; then
+    echo "Service failed to start. See /root/service.log for details." | tee -a /root/setup.log
+  else
+    echo "Service is up and running." | tee -a /root/setup.log
+  fi
+}
+
+# Call the function to start the 3D inference service
+start_3d_inference_service
