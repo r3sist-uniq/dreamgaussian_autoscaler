@@ -13,6 +13,7 @@ start_server() {
 }
 
 start_server "$SERVER_DIR" "dreamgaussian"
+echo "start_server done successfully"
 
 # Function to clone repo, install dependencies, and start FastAPI server
 start_3d_inference_service() {
@@ -33,8 +34,8 @@ start_3d_inference_service() {
   # Navigate to service directory and install dependencies
   cd $APP_DIR
   echo "Installing dependencies..." | tee -a /root/setup.log
-  chmod +x install_dependencies.sh
-  ./install_dependencies.sh
+  chmod +x dependencies.sh
+  ./dependencies.sh
 
   # Start the FastAPI service
   echo "Starting FastAPI service..." | tee -a /root/setup.log
