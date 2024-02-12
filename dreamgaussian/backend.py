@@ -27,7 +27,7 @@ class Backend(GenericBackend):
         status_code, result, time_elapsed = super().generate(image_data, self.model_server_addr, endpoint, response_func, metrics=True)
         
         if status_code == 200 and result is not None:
-            return jsonify(result), 200 
+            return jsonify(result, status_code, time_elapsed), 200 
         else:
             return jsonify({"error": "Failed to generate 3D model"}), status_code if result is not None else 500
     
@@ -44,8 +44,8 @@ class Backend(GenericBackend):
             if not payload:
                 abort(400, description="Invalid request data")
 
-            response, status_code = self.generate_3d_model(payload)
-            return response, status_code
+            response, status_code, time_elapsed = self.generate_3d_model(payload)
+            return response
         except Exception as e:
             print(f"Error processing 3D model generation request: {e}")
             abort(500, description="Internal server error")
